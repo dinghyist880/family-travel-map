@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Our Family Adventures</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #1B2A3B;
+    --navy-light: #243647;
+    --cream: #F5F0E8;
+    --cream-dim: #C8C0B0;
+    --past: #D4603A;
+    --future: #2A7BA8;
+    --accent: #E8C547;
+  }
+  body {
+    background: var(--navy);
+    color: var(--cream);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  header {
+    text-align: center;
+    padding: 24px 20px 12px;
+  }
+  header::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 2px;
+    background: var(--accent);
+    margin: 10px auto 0;
+  }
+  .title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.5rem, 4vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .subtitle {
+    font-size: 0.76rem;
+    color: var(--cream-dim);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 5px;
+  }
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    padding: 10px 20px 14px;
+    flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 0.66rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cream-dim);
+    margin-top: 2px;
+  }
+  .map-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 12px 8px;
+  }
+  #main-map {
+    width: 100%;
+    background: #1a2535;
+    border-radius: 12px;
+    display: block;
+  }
+  .legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    padding: 10px 20px 18px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.76rem;
+    color: var(--cream-dim);
+    letter-spacing: 0.05em;
+  }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-dot.past { background: var(--past); }
+  .legend-dot.future { background: transparent; border: 2.5px solid var(--future); }
+
+  .tooltip {
+    position: fixed;
+    background: rgba(12, 22, 34, 0.97);
+    border: 1px solid rgba(245,240,232,0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    pointer-events: none;
+    z-index: 999;
+    max-width: 240px;
+    opacity: 0;
+    transition: opacity 0.12s;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  }
+  .tooltip.visible { opacity: 1; }
+  .tt-name { font-family: 'Playfair Display', serif; font-size: 0.92rem; color: var(--cream); font-weight: 700; margin-bottom: 3px; }
+  .tt-date { font-size: 0.70rem; color: var(--accent); letter-spacing: 0.04em; margin-bottom: 3px; }
+  .tt-memo { font-size: 0.70rem; color: var(--cream-dim); font-style: italic; line-height: 1.4; }
+
+  .country { fill: #243040; stroke: #3d566e; stroke-width: 0.5; }
+  .state   { fill: #2c3e52; stroke: #4a6278; stroke-width: 0.35; }
+  .state-border { fill: none; stroke: #3d586e; stroke-width: 0.55; }
+  .ocean   { fill: #1a2535; }
+  .graticule { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 0.4; }
+
+  @media (max-width: 600px) {
+    .stats { gap: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">Our Family Adventures</div>
+  <div class="subtitle">家族の旅の記録</div>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="stat-num" id="stat-past">0</div><div class="stat-label">訪問済み</div></div>
+  <div class="stat"><div class="stat-num" id="stat-future">0</div><div class="stat-label">計画中</div></div>
+  <div class="stat"><div class="stat-num" id="stat-countries">0</div><div class="stat-label">カ国・地域</div></div>
+</div>
+
+<div class="map-wrapper">
+  <svg id="main-map"></svg>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot past"></div>過去の旅行</div>
+  <div class="legend-item"><div class="legend-dot future"></div>今後の予定</div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-date" id="tt-date"></div>
+  <div class="tt-memo" id="tt-memo"></div>
+</div>
+
+<script>
+const PAST = 'past', FUTURE = 'future';
+
+const destinations = [
+  // PAST
+  { name:"カレッジステーション, TX", lat:30.6280,  lon:-96.3344,  type:PAST,   date:"2024年12月1日",                  memo:"" },
+  { name:"ガルベストン（クルーズ）", lat:29.3013,  lon:-94.7977,  type:PAST,   date:"2024年12月28日〜2025年1月1日",   memo:"コスメル島・コスタマヤ寄港" },
+  { name:"コスメル島",              lat:20.5083,  lon:-86.9458,  type:PAST,   date:"2024年12月〜2025年1月",          memo:"クルーズ寄港地" },
+  { name:"コスタマヤ",              lat:18.7333,  lon:-87.7167,  type:PAST,   date:"2024年12月〜2025年1月",          memo:"クルーズ寄港地" },
+  { name:"カンクン",                lat:21.1619,  lon:-86.8515,  type:PAST,   date:"2025年2月15日〜18日",            memo:"" },
+  { name:"ニューヨーク",            lat:40.7128,  lon:-74.0060,  type:PAST,   date:"2025年5月23日〜25日",            memo:"" },
+  { name:"ボストン",                lat:42.3601,  lon:-71.0589,  type:PAST,   date:"2025年5月25日〜26日",            memo:"" },
+  { name:"トロント",                lat:43.6532,  lon:-79.3832,  type:PAST,   date:"2025年6月19日〜22日",            memo:"ナイアガラの滝・ナイアガラオンザレイクも訪問" },
+  { name:"ナイアガラの滝",          lat:43.0962,  lon:-79.0377,  type:PAST,   date:"2025年6月19日〜22日",            memo:"" },
+  { name:"サンアントニオ / Gruene", lat:29.4241,  lon:-98.4936,  type:PAST,   date:"2025年7月4日〜6日",              memo:"" },
+  { name:"Sedona",                  lat:34.8697,  lon:-111.7610, type:PAST,   date:"2025年8月3日〜8日",              memo:"グランドサークル" },
+  { name:"Grand Canyon",            lat:36.0544,  lon:-112.1401, type:PAST,   date:"2025年8月3日〜8日",              memo:"グランドサークル" },
+  { name:"Monument Valley",         lat:36.9983,  lon:-110.0985, type:PAST,   date:"2025年8月3日〜8日",              memo:"グランドサークル" },
+  { name:"Antelope Canyon",         lat:36.8619,  lon:-111.3743, type:PAST,   date:"2025年8月3日〜8日",              memo:"グランドサークル" },
+  { name:"Horseshoe Bend",          lat:36.8791,  lon:-111.5107, type:PAST,   date:"2025年8月3日〜8日",              memo:"グランドサークル" },
+  { name:"Bryce Canyon",            lat:37.5930,  lon:-112.1871, type:PAST,   date:"2025年8月3日〜8日",              memo:"グランドサークル" },
+  { name:"ラスベガス",              lat:36.1699,  lon:-115.1398, type:PAST,   date:"2025年8月7日〜9日",              memo:"" },
+  { name:"ロサンゼルス",            lat:34.0522,  lon:-118.2437, type:PAST,   date:"2025年8月9日〜10日",             memo:"" },
+  { name:"Dallas / Fort Worth",     lat:32.7767,  lon:-96.7970,  type:PAST,   date:"2025年8月30日〜9月1日",          memo:"Glen Rose・Wacoも訪問" },
+  { name:"Freeport, TX",            lat:28.9552,  lon:-95.3599,  type:PAST,   date:"2025年9月28日",                  memo:"" },
+  { name:"Big Bend国立公園",        lat:29.1275,  lon:-103.2425, type:PAST,   date:"2025年11月27日〜30日",           memo:"" },
+  { name:"マイアミ / キーウェスト", lat:25.7617,  lon:-80.1918,  type:PAST,   date:"2025年12月27日〜31日",           memo:"" },
+  { name:"ワシントン D.C.",         lat:38.9072,  lon:-77.0369,  type:PAST,   date:"2026年2月14日〜16日",            memo:"" },
+  { name:"ヨセミテ国立公園",        lat:37.8651,  lon:-119.5383, type:PAST,   date:"2026年6月2日〜6日",              memo:"" },
+  { name:"サンフランシスコ",        lat:37.8029,  lon:-122.4484, type:PAST,   date:"2026年6月2日〜6日",              memo:"Pier39" },
+  { name:"Austin, TX",              lat:30.2672,  lon:-97.7431,  type:PAST,   date:"2026年6月19日〜21日",            memo:"" },
+  // FUTURE
+  { name:"バンフ / Waterton Lake",  lat:51.4968,  lon:-115.9281, type:FUTURE, date:"2026年8月10日〜15日",            memo:"Waterton Lakeも訪問予定" },
+  { name:"El Paso",                 lat:31.7619,  lon:-106.4850, type:FUTURE, date:"2026年11月26日〜30日",           memo:"White Sands・カールスバット鍾乳洞も" },
+  { name:"White Sands",             lat:32.7872,  lon:-106.3260, type:FUTURE, date:"2026年11月26日〜30日",           memo:"" },
+  { name:"カールスバット鍾乳洞",    lat:32.1479,  lon:-104.5567, type:FUTURE, date:"2026年11月26日〜30日",           memo:"" },
+  { name:"ニューオーリンズ（クルーズ）", lat:29.9511, lon:-90.0715, type:FUTURE, date:"2026年12月26日〜2027年1月2日", memo:"Cayman(George Town)・Falmouth(Jamaica)寄港" },
+  { name:"ジョージタウン, ケイマン", lat:19.2869,  lon:-81.3674,  type:FUTURE, date:"2026年12月〜2027年1月",         memo:"クルーズ寄港予定" },
+  { name:"ファルマス, ジャマイカ",   lat:18.4762,  lon:-77.6631,  type:FUTURE, date:"2026年12月〜2027年1月",         memo:"クルーズ寄港予定" },
+];
+
+document.getElementById('stat-past').textContent = destinations.filter(d=>d.type===PAST).length;
+document.getElementById('stat-future').textContent = destinations.filter(d=>d.type===FUTURE).length;
+document.getElementById('stat-countries').textContent = 5; // USA, Canada, Mexico, Cayman, Jamaica
+
+// Tooltip
+const tooltip = document.getElementById('tooltip');
+function showTip(e, d) {
+  document.getElementById('tt-name').textContent = d.name;
+  document.getElementById('tt-date').textContent = d.date;
+  const memo = document.getElementById('tt-memo');
+  memo.textContent = d.memo || '';
+  memo.style.display = d.memo ? '' : 'none';
+  tooltip.classList.add('visible');
+  moveTip(e);
+}
+function moveTip(e) {
+  tooltip.style.left = Math.min(e.clientX+14, window.innerWidth-260)+'px';
+  tooltip.style.top  = Math.max(e.clientY-10, 8)+'px';
+}
+function hideTip() { tooltip.classList.remove('visible'); }
+
+// ── MAP ──
+(async function() {
+  const wrapper = document.querySelector('.map-wrapper');
+  const W = wrapper.clientWidth - 24;
+  // Aspect: cover lat ~13N (Caribbean) to ~56N (Banff) , lon ~-130W to ~-62W
+  const H = Math.round(W * 0.68);
+
+  const svg = d3.select('#main-map')
+    .attr('viewBox', `0 0 ${W} ${H}`)
+    .attr('width', W).attr('height', H);
+
+  // Custom conic conformal centered & fitted to our region
+  // center: roughly center of our bounding box
+  const projection = d3.geoConicConformal()
+    .parallels([20, 50])
+    .rotate([97, 0])          // center longitude
+    .fitSize([W, H], {
+      type: 'Feature',
+      geometry: {
+        type: 'MultiPoint',
+        // bounding corners: SW and NE of our region
+        coordinates: [[-130, 13], [-60, 57]]
+      }
+    });
+
+  const path = d3.geoPath().projection(projection);
+
+  // Zoom & pan
+  const zoom = d3.zoom().scaleExtent([1, 12]).on('zoom', ev => {
+    mapG.attr('transform', ev.transform);
+  });
+  svg.call(zoom);
+
+  // Ocean background
+  svg.append('rect').attr('width', W).attr('height', H).attr('fill','#1a2535').attr('rx', 12);
+
+  const mapG = svg.append('g');
+
+  // Graticule
+  const graticule = d3.geoGraticule().step([10, 10]);
+  mapG.append('path').datum(graticule()).attr('class','graticule').attr('d', path);
+
+  // Load world atlas
+  let world;
+  try {
+    const r = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    world = await r.json();
+  } catch(e) { console.error('world atlas load failed', e); return; }
+
+  const countries = topojson.feature(world, world.objects.countries);
+  mapG.selectAll('.country').data(countries.features).enter()
+    .append('path').attr('class','country').attr('d', path);
+
+  // Overlay US states
+  let us;
+  try {
+    const r2 = await fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json');
+    us = await r2.json();
+  } catch(e) { console.error('US atlas load failed', e); return; }
+
+  const states = topojson.feature(us, us.objects.states);
+  const borders = topojson.mesh(us, us.objects.states, (a,b) => a!==b);
+
+  mapG.selectAll('.state').data(states.features).enter()
+    .append('path').attr('class','state').attr('d', path);
+  mapG.append('path').datum(borders).attr('class','state-border').attr('d', path);
+
+  // ── PINS ──
+  const pinG = mapG.append('g');
+
+  destinations.forEach(d => {
+    const p = projection([d.lon, d.lat]);
+    if (!p) return;
+
+    const isPast = d.type === PAST;
+    const col = isPast ? '#D4603A' : '#2A7BA8';
+    const g = pinG.append('g').attr('transform', `translate(${p[0]},${p[1]})`);
+
+    // soft glow halo
+    g.append('circle').attr('r', 10)
+      .attr('fill', isPast ? 'rgba(212,96,58,0.15)' : 'rgba(42,123,168,0.15)');
+
+    // pin dot
+    g.append('circle')
+      .attr('r', 5.5)
+      .attr('fill', isPast ? col : 'none')
+      .attr('stroke', col)
+      .attr('stroke-width', isPast ? 0 : 2)
+      .style('cursor','pointer')
+      .on('mouseover', e => showTip(e, d))
+      .on('mousemove',  moveTip)
+      .on('mouseout',   hideTip);
+
+    // name label
+    g.append('text')
+      .attr('y', 15)
+      .attr('text-anchor','middle')
+      .attr('font-family','Inter, sans-serif')
+      .attr('font-size','8px')
+      .attr('fill','#F5F0E8')
+      .attr('pointer-events','none')
+      .text(d.name.length > 14 ? d.name.slice(0,13)+'…' : d.name);
+
+    // year
+    const yr = d.date.match(/\d{4}/)?.[0] || '';
+    if (yr) g.append('text')
+      .attr('y', 23)
+      .attr('text-anchor','middle')
+      .attr('font-family','Inter, sans-serif')
+      .attr('font-size','7px')
+      .attr('fill','#a0998c')
+      .attr('pointer-events','none')
+      .text(yr);
+  });
+})();
+</script>
+</body>
+</html>
