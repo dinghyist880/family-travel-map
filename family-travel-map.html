@@ -304,6 +304,29 @@ function hideTip() { tooltip.classList.remove('visible'); }
     g.append('circle').attr('r', 10)
       .attr('fill', isPast ? 'rgba(212,96,58,0.15)' : 'rgba(42,123,168,0.15)');
 
+    // name label（デフォルト非表示）
+    const labelName = g.append('text')
+      .attr('y', 15)
+      .attr('text-anchor','middle')
+      .attr('font-family','Inter, sans-serif')
+      .attr('font-size','8px')
+      .attr('fill','#F5F0E8')
+      .attr('pointer-events','none')
+      .attr('opacity', 0)
+      .text(d.name.length > 14 ? d.name.slice(0,13)+'…' : d.name);
+
+    // year（デフォルト非表示）
+    const yr = d.date.match(/\d{4}/)?.[0] || '';
+    const labelYr = yr ? g.append('text')
+      .attr('y', 23)
+      .attr('text-anchor','middle')
+      .attr('font-family','Inter, sans-serif')
+      .attr('font-size','7px')
+      .attr('fill','#a0998c')
+      .attr('pointer-events','none')
+      .attr('opacity', 0)
+      .text(yr) : null;
+
     // pin dot
     g.append('circle')
       .attr('r', 5.5)
@@ -311,30 +334,28 @@ function hideTip() { tooltip.classList.remove('visible'); }
       .attr('stroke', col)
       .attr('stroke-width', isPast ? 0 : 2)
       .style('cursor','pointer')
-      .on('mouseover', e => showTip(e, d))
-      .on('mousemove',  moveTip)
-      .on('mouseout',   hideTip);
-
-    // name label
-    g.append('text')
-      .attr('y', 15)
-      .attr('text-anchor','middle')
-      .attr('font-family','Inter, sans-serif')
-      .attr('font-size','8px')
-      .attr('fill','#F5F0E8')
-      .attr('pointer-events','none')
-      .text(d.name.length > 14 ? d.name.slice(0,13)+'…' : d.name);
-
-    // year
-    const yr = d.date.match(/\d{4}/)?.[0] || '';
-    if (yr) g.append('text')
-      .attr('y', 23)
-      .attr('text-anchor','middle')
-      .attr('font-family','Inter, sans-serif')
-      .attr('font-size','7px')
-      .attr('fill','#a0998c')
-      .attr('pointer-events','none')
-      .text(yr);
+      .on('mouseover', e => {
+        labelName.attr('opacity', 1);
+        if (labelYr) labelYr.attr('opacity', 1);
+        showTip(e, d);
+      })
+      .on('mousemove', moveTip)
+      .on('mouseout', () => {
+        labelName.attr('opacity', 0);
+        if (labelYr) labelYr.attr('opacity', 0);
+        hideTip();
+      })
+      .on('touchstart', e => {
+        e.preventDefault();
+        labelName.attr('opacity', 1);
+        if (labelYr) labelYr.attr('opacity', 1);
+        showTip(e.touches[0], d);
+      })
+      .on('touchend', () => {
+        labelName.attr('opacity', 0);
+        if (labelYr) labelYr.attr('opacity', 0);
+        hideTip();
+      });
   });
 })();
 </script>
